@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEVShield | MEV Risk Analyzer & Gas Simulator</title>
+<meta name="description" content="Check if your swap is sandwichable, simulate MEV profit math, and pick the ideal gas fee. Live base fee + prices.">
+<link rel="canonical" href="https://aoodiakdiro0001-ops.github.io/mevshield/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0e1a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MEVShield | MEV & Gas Simulator">
+<meta property="og:description" content="Sandwich risk check, AMM math simulator, live gas advisor.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Consolas,monospace}
+:root{--bg:#0a0e1a;--panel:#121830;--line:#26315a;--grn:#34d399;--gold:#fbbf24;--blu:#60a5fa;--pur:#c084fc;--txt:#dbe4f3;--mut:#8b98b8;--red:#f87171;--org:#fb923c}
+body{background:var(--bg);color:var(--txt)}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font-size:22px;font-weight:900;color:var(--gold)}
+.logo small{display:block;font-size:11px;color:var(--mut);font-weight:400}
+.live{font-size:11px;font-weight:800;color:var(--grn);border:1px solid var(--grn);border-radius:12px;padding:3px 10px}
+header select{margin-left:auto;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:14px;padding:7px 10px;font-size:13px}
+.tabs{display:flex;gap:6px;padding:14px 16px 0;flex-wrap:wrap;max-width:1100px;margin:0 auto}
+.tabs button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-bottom:none;padding:10px 16px;border-radius:12px 12px 0 0;cursor:pointer;font-weight:800;font-size:13px}
+.tabs button.on{background:#1c2348;color:var(--gold)}
+main{max-width:1100px;margin:0 auto;padding:18px 15px 60px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:0 14px 14px 14px;padding:22px;display:none}
+.panel.on{display:block}
+.panel h2{color:var(--gold);margin-bottom:6px;font-size:19px}
+.panel p.sub{color:var(--mut);font-size:13px;margin-bottom:12px;line-height:1.7}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.box{background:#0a0e1a;border:1px solid var(--line);border-radius:14px;padding:16px}
+.box h3{font-size:14px;color:var(--blu);margin-bottom:10px}
+label.fl{display:block;font-size:12.5px;color:var(--mut);margin:8px 0 3px}
+input[type=text],input[type=number],select{background:#0a0e1a;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px 13px;font-size:14px;outline:none;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center}
+button.go{background:var(--gold);color:#231a03;border:none;padding:11px 26px;border-radius:10px;font-weight:900;cursor:pointer;font-size:14px}
+button.alt{background:transparent;color:var(--blu);border:1px solid var(--blu);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px}
+.res{background:#0a0e1a;border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;font-size:14px;line-height:2}
+.res b.big{font-size:20px}
+.verdict{font-size:19px;font-weight:900;padding:10px;border-radius:12px;margin:10px 0;text-align:center}
+.v-safe{background:#0e2a1d;color:var(--grn)} .v-low{background:#1a2348;color:var(--blu)} .v-med{background:#3a2c10;color:var(--ylw)} .v-high{background:#3d2410;color:var(--org)} .v-crit{background:#3d1414;color:var(--red)}
+.note{background:#1c2348;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--mut);margin:10px 0;line-height:1.7}
+table.pt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+table.pt td{border-bottom:1px solid var(--line);padding:7px 8px}
+table.pt td:first-child{color:var(--mut)}
+.venue{display:flex;gap:10px;align-items:center;background:#0a0e1a;border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;flex-wrap:wrap;font-size:13px}
+.venue .nm{font-weight:900;font-size:15px;min-width:150px}
+.venue .ds{color:var(--mut);flex:1;min-width:200px}
+.venue a{background:var(--grn);color:#06281c;font-weight:900;text-decoration:none;font-size:13px;padding:10px 20px;border-radius:14px;white-space:nowrap}
+.refbadge{font-size:10px;font-weight:900;background:var(--gold);color:#231a03;border-radius:8px;padding:2px 7px;margin-left:6px}
+.donate{background:linear-gradient(135deg,#1c2348,#0e2a1d);border:1px solid var(--grn);border-radius:16px;padding:20px;text-align:center;margin-top:8px;font-size:13px}
+.donate .addr{background:#0a0e1a;border-radius:10px;padding:10px;font-family:monospace;font-size:12px;word-break:break-all;direction:ltr;margin:6px auto;color:var(--grn);max-width:560px}
+.adslot{max-width:1100px;margin:12px auto 0;padding:0 15px;text-align:center}
+.adslot .ph{display:block;border:1px dashed var(--line);border-radius:10px;color:var(--mut);font-size:12px;padding:10px}
+footer{text-align:center;color:var(--mut);font-size:12.5px;padding:26px 16px;border-top:1px solid var(--line);line-height:2}
+footer a{color:var(--grn)}
+#toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:12px 25px;border-radius:25px;z-index:200;display:none;font-size:14px;max-width:92vw;text-align:center}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">🥪 MEVShield<small data-i="tag"></small></div>
+<span class="live">● LIVE</span>
+<select id="langSel" onchange="setLang(this.value)">
+<option value="en" selected>🇬🇧 English</option><option value="tr">🇹🇷 Türkçe</option><option value="ar">🇸🇦 العربية</option>
+</select>
+</header>
+<div class="note" style="max-width:1100px;margin:12px auto 0"><span data-i="eduNote" style="display:block;background:#1a2352;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px 14px;font-size:12.5px"></span></div>
+<div class="tabs" id="tabs"></div>
+<main>
+<section class="panel on" id="p-risk">
+<h2 data-i="rT"></h2><p class="sub" data-i="rS"></p>
+<div class="grid2">
+<div class="box"><h3 data-i="inT"></h3>
+<label class="fl" data-i="fDex"></label><select id="rDex"><option>Uniswap V2</option><option>Uniswap V3</option><option>SushiSwap</option><option>PancakeSwap</option><option>Other AMM</option></select>
+<label class="fl" data-i="fAmt"></label><input type="number" id="rAmt" value="10000" step="any">
+<label class="fl" data-i="fLiq"></label><input type="number" id="rLiq" value="500000" step="any">
+<label class="fl" data-i="fSlip"></label><input type="number" id="rSlip" value="1" step="any">
+<label class="fl" data-i="fMem"></label><select id="rMem"><option value="pub" data-i="memPub"></option><option value="priv" data-i="memPriv"></option></select>
+<div class="row"><button class="go" onclick="calcRisk()" data-i="btnCheck"></button></div>
+</div>
+<div class="box"><h3 data-i="outT"></h3><div id="riskRes">—</div></div>
+</div>
+</section>
+<section class="panel" id="p-sim">
+<h2 data-i="sT"></h2><p class="sub" data-i="sS"></p>
+<div class="grid2">
+<div class="box"><h3 data-i="inT"></h3>
+<label class="fl" data-i="fVAmt"></label><input type="number" id="sV" value="10000" step="any">
+<label class="fl" data-i="fALiq"></label><input type="number" id="sL" value="500000" step="any">
+<label class="fl" data-i="fAMax"></label><input type="number" id="sF" value="5" step="any">
+<label class="fl" data-i="fSlip"></label><input type="number" id="sSlip" value="1" step="any">
+<label class="fl" data-i="fAGas"></label><input type="number" id="sG" value="30" step="any">
+<div class="row"><button class="go" onclick="calcSim()" data-i="btnSim"></button></div>
+</div>
+<div class="box"><h3 data-i="outT"></h3><div id="simRes">—</div></div>
+</div>
+</section>
+<section class="panel" id="p-gas">
+<h2 data-i="gT"></h2><p class="sub" data-i="gS"></p>
+<div class="grid2">
+<div class="box"><h3 data-i="inT"></h3>
+<label class="fl" data-i="fNet"></label><select id="gNet" onchange="loadGas(true)"><option value="eth">Ethereum</option><option value="bsc">BSC</option><option value="poly">Polygon</option><option value="arb">Arbitrum</option><option value="base">Base</option></select>
+<label class="fl" data-i="fUrg"></label><select id="gUrg"><option value="slow" data-i="uSlow"></option><option value="std" selected data-i="uStd"></option><option value="fast" data-i="uFast"></option><option value="ape" data-i="uApe"></option></select>
+<label class="fl" data-i="fGasLim"></label><input type="number" id="gLim" value="150000" step="any">
+<label class="fl" data-i="fBase"></label><input type="number" id="gBase" data-i-ph="autoL" step="any">
+<div class="row"><button class="go" onclick="calcGas()" data-i="btnGas"></button><button class="alt" onclick="loadGas(true)" data-i="btnLive"></button></div>
+</div>
+<div class="box"><h3 data-i="outT"></h3><div id="gasRes">—</div><div class="note" id="gasSrc"></div></div>
+</div>
+</section>
+<section class="panel" id="p-safe">
+<h2 data-i="vT"></h2><p class="sub" data-i="vS"></p>
+<div id="venueList"></div>
+<div class="note" data-i="refNote"></div>
+</section>
+<section class="panel" id="p-donate">
+<h2 data-i="doT"></h2><p class="sub" data-i="doS"></p>
+<div class="donate">
+<div>₿ BTC</div><div class="addr" id="btcA"></div>
+<div>₮ USDT-TRC20</div><div class="addr" id="usdtA"></div>
+<div class="row" style="justify-content:center"><button class="alt" onclick="copyTxt(document.getElementById('btcA').textContent)" data-i="btnCopy"></button></div>
+<div style="font-size:12.5px">🏦 Baran Avisat — TRY: <code dir="ltr">TR10 0001 0090 1008 4013 0050 01</code></div>
+<div style="font-size:12.5px">🏦 Baran Avisat — USD: <code dir="ltr">TR80 0001 0090 1008 4013 0050 02</code></div>
+</div>
+</section>
+</main>
+<div class="adslot" id="adFoot"><span class="ph" data-i="adHere" style="display:block;border:1px dashed var(--line);border-radius:10px;color:var(--mut);font-size:12px;padding:10px"></span></div>
+<footer><span data-i="foot"></span><br>📧 <a href="mailto:baranavisat@gmail.com">baranavisat@gmail.com</a> · 📞 <a href="tel:+905313263722" dir="ltr">+90 531 326 37 22</a> · <a href="https://wa.me/905313263722" target="_blank" rel="noopener">WhatsApp</a> · <a href="https://t.me/BaranScanBot" target="_blank" rel="noopener">Telegram</a><br><a href="README.md" target="_blank">README</a> · MIT</footer>
+<div id="toast"></div>
+<script>
+const CONFIG={ads:{client:'',slot:'',carbonServe:'',carbonPlacement:''},
+pay:{btc:'bc1q8dhtdrndxsl70e97t8grydfe6pjue37zrhzf6c',usdt:'TLWdTjqqogkXNEXGiPWsGdjFP6ioycxeWW'},
+refs:{flashbots:'',mevblocker:'',binance:'https://www.binance.com/activity/referral-entry/CPA?ref=CPA_006Q5UBO64',pocket:'https://pocket-friends.co/r/hvb4v0f1tt'}};
+const RPCS={eth:'https://ethereum.publicnode.com',bsc:'https://bsc-dataseed1.binance.org',poly:'https://polygon-rpc.com',arb:'https://arb1.arbitrum.io/rpc',base:'https://mainnet.base.org'};
+const VENUES=[
+{k:'flashbots',n:'Flashbots Protect',d:'Private mempool RPC — your tx skips public mempool entirely',u:'https://docs.flashbots.net/flashbots-protect/rpc/quick-start'},
+{k:'mevblocker',n:'MEV Blocker',d:'Free protective RPC + rebates back to users',u:'https://mevblocker.io'},
+{k:'binance',n:'Binance (CEX)',d:'Centralized trading — no mempool exposure at all',u:'https://www.binance.com'},
+{k:'pocket',n:'Pocket Option',d:'Simple trading platform (high-risk product)',u:'https://pocketoption.com'}];
+const T={
+en:{tag:'MEV risk check + sandwich math + gas advisor',tabR:'🛡️ Risk Check',tabS:'🥪 Simulator',tabG:'⛽ Gas',tabV:'🔒 Safe Venues',tabDo:'💚 Donate',
+eduNote:'🎓 Educational simulator: learn how sandwich bots think so you can defend. MEVShield never sends transactions or moves funds.',
+rT:'🛡️ Sandwich Risk Analyzer',rS:'Enter your swap — get a 0–100 exploitability score with concrete defenses.',
+inT:'Your trade',outT:'Result',fDex:'DEX',fAmt:'Trade size (USD)',fLiq:'Pool liquidity/TVL (USD)',fSlip:'Slippage tolerance %',fMem:'Broadcast',memPub:'Public mempool',memPriv:'Private RPC',btnCheck:'Analyze risk',
+fVAmt:'Victim size (USD)',fALiq:'Pool liquidity (USD)',fAMax:'Max attacker size % of pool',fAGas:'Gas per attacker tx (USD)',sAtk:'Optimal attacker size',
+sT:'🥪 Sandwich Simulator (x·y=k)',sS:'Real sandwich game: the attacker sizes against your slippage limit — if output would drop below minimum, your tx reverts and there is nothing to steal.',
+btnSim:'Simulate',
+gT:'⛽ Ideal Gas Advisor',gS:'Live base fee + priority tiers. “Outrun” mode doubles the fast tip — plus private-RPC guidance.',
+fNet:'Network',fUrg:'Urgency',uSlow:'Slow',uStd:'Standard',uFast:'Fast',uApe:'🚀 Outrun bots',fGasLim:'Gas limit',fBase:'Base fee (gwei, empty=live)',autoL:'auto (live)',btnGas:'Recommend',btnLive:'↻ Live base fee',
+vT:'🔒 MEV-Safe Venues',vS:'Trade where bots cannot see you: private mempools, CEX order books. REF marks our referral links.',
+refNote:'Referral links earn us lifetime commissions at no extra cost to you.',
+doT:'💚 Support MEVShield',doS:'Free forever. Donations keep simulations accurate.',
+btnCopy:'Copy',adHere:'High-CPM crypto network ads here',foot:'MEVShield — educational simulator. Not financial advice.',
+copied:'Copied ✅',needNum:'Enter valid numbers ⚠️',liveOk:'live',liveFail:'manual (RPC unreachable)',
+rImpact:'Price impact',rScore:'Risk score',mitT:'Defenses',m1:'Use a private RPC (Flashbots Protect / MEV Blocker)',m2:'Lower slippage tolerance',m3:'Split large orders into smaller chunks',m4:'Use limit orders or CEX for size',m5:'Avoid low-liquidity pools at busy hours',
+sFront:'Attacker front-run',sVictim:'Victim execution',sBack:'Attacker back-run',sProfit:'Est. attacker profit',sNo:'Not profitable — bot likely ignores ✅',sYes:'Profitable — bot likely attacks ⚠️',
+gPri:'Priority fee',gMax:'Max fee',gCost:'Tx cost',gBase:'Base fee',gEth:'ETH price',openB:'Open ↗'},
+tr:{tag:'MEV risk kontrolü + sandwich matematiği + gas',tabR:'🛡️ Risk',tabS:'🥪 Simülatör',tabG:'⛽ Gas',tabV:'🔒 Güvenli Yerler',tabDo:'💚 Destek',
+eduNote:'🎓 Eğitsel simülatör: botların nasıl düşündüğünü öğrenin, savunun. MEVShield işlem göndermez, fon taşımaz.',
+rT:'🛡️ Sandwich Risk Analizi',rS:'Swap\u2019inizi girin — 0–100 istismar skoru ve somut savunmalar alın.',
+inT:'İşleminiz',outT:'Sonuç',fDex:'DEX',fAmt:'İşlem büyüklüğü (USD)',fLiq:'Havuz likiditesi (USD)',fSlip:'Slippage toleransı %',fMem:'Yayın',memPub:'Açık mempool',memPriv:'Özel RPC',btnCheck:'Analiz Et',
+fVAmt:'Kurban büyüklük (USD)',fALiq:'Havuz likidite (USD)',fAMax:'Maks saldırgan % (havuzun)',fAGas:'Saldırgan işlem gas (USD)',sAtk:'Optimal saldırgan büyüklük',
+sT:'🥪 Sandwich Simülatörü (x·y=k)',sS:'Gerçek sandwich oyunu: saldırgan slippage limitinize göre boyutlanır — çıktınız minimumun altına düşerse işleminiz geri alınır, çalınacak bir şey kalmaz.',
+btnSim:'Simüle Et',
+gT:'⛽ İdeal Gas Önerisi',gS:'Canlı base fee + öncelik kademeleri. “Bot savar” modu hızlı bahşişi ikiye katlar.',
+fNet:'Ağ',fUrg:'Aciliyet',uSlow:'Yavaş',uStd:'Standart',uFast:'Hızlı',uApe:'🚀 Bot savar',fGasLim:'Gas limiti',fBase:'Base fee (gwei, boş=canlı)',autoL:'otomatik (canlı)',btnGas:'Öner',btnLive:'↻ Canlı fee',
+vT:'🔒 MEV-Güvenli Yerler',vS:'Botların göremediği yerde işlem yapın: özel mempool, CEX defterleri.',
+refNote:'Referans linkler bize ömür boyu komisyon kazandırır, size ekstra maliyet yok.',
+doT:'💚 Destekle',doS:'Sonsuza dek ücretsiz. Bağışlar simülasyonları güncel tutar.',
+btnCopy:'Kopyala',adHere:'Yüksek CPM kripto reklamları burada',foot:'MEVShield — eğitsel simülatör. Yatırım tavsiyesi değildir.',
+copied:'Kopyalandı ✅',needNum:'Geçerli sayılar girin ⚠️',liveOk:'canlı',liveFail:'manuel (RPC yok)',
+rImpact:'Fiyat etkisi',rScore:'Risk skoru',mitT:'Savunmalar',m1:'Özel RPC kullanın (Flashbots Protect / MEV Blocker)',m2:'Slippage toleransını düşürün',m3:'Büyük emirleri bölün',m4:'Büyük işlemde limit emir/CEX kullanın',m5:'Yoğun saatte sığ havuzdan kaçının',
+sFront:'Saldırgan önden alım',sVictim:'Kurban işlemi',sBack:'Saldırgan arkadan satış',sProfit:'Tahmini saldırgan kârı',sNo:'Kârsız — bot muhtemelen görmezden gelir ✅',sYes:'Kârlı — bot muhtemelen saldırır ⚠️',
+gPri:'Öncelik ücreti',gMax:'Maks ücret',gCost:'İşlem maliyeti',gBase:'Base fee',gEth:'ETH fiyatı',openB:'Aç ↗'},
+ar:{tag:'فحص MEV ومحاكاة الغاز',tabR:'🛡️ المخاطر',tabS:'🥪 محاكي',tabG:'⛽ الغاز',tabV:'🔒 أماكن آمنة',tabDo:'💚 ادعم',
+eduNote:'🎓 محاكي تعليمي: تعلم كيف تفكر البوتات لتدافع. لا يرسل معاملات ولا يحرك أموالاً.',
+rT:'🛡️ محلل مخاطر الساندويتش',rS:'أدخل مبادلتك — واحصل على درجة 0–100 ودفاعات عملية.',
+inT:'صفقتك',outT:'النتيجة',fDex:'المنصة',fAmt:'الحجم (دولار)',fLiq:'سيولة الحوض (دولار)',fSlip:'تحمل الانزلاق %',fMem:'البث',memPub:'ميمبول عام',memPriv:'RPC خاص',btnCheck:'حلّل',
+fVAmt:'حجم الضحية (دولار)',fALiq:'سيولة الحوض (دولار)',fAMax:'أقصى حجم للمهاجم % من الحوض',fAGas:'غاز المهاجم (دولار)',sAtk:'الحجم الأمثل للمهاجم',
+sT:'🥪 محاكي الساندويتش (x·y=k)',sS:'اللعبة الحقيقية: يضبط المهاجم حجمه حسب حد الانزلاق — إذا نزل ناتجك تحت الحد رُفضت معاملتك ولا شيء للسرقة.',
+btnSim:'حاكِ',
+gT:'⛽ مستشار الغاز المثالي',gS:'رسوم حية + شرائح أولوية. وضع «تجاوز البوتات» يضاعف الإكرامية.',
+fNet:'الشبكة',fUrg:'الاستعجال',uSlow:'بطيء',uStd:'عادي',uFast:'سريع',uApe:'🚀 تجاوز البوتات',fGasLim:'حد الغاز',fBase:'الرسوم (gwei، فارغ=حي)',autoL:'تلقائي (حي)',btnGas:'اقترح',btnLive:'↻ رسوم حية',
+vT:'🔒 أماكن آمنة من MEV',vS:'تداول حيث لا تراك البوتات: ميمبول خاص ودفاتر مركزية.',
+refNote:'روابط الإحالة تكسبنا عمولات دائمة دون تكلفة عليك.',
+doT:'💚 ادعم',doS:'مجاني للأبد. التبرعات تُبقي المحاكاة دقيقة.',
+btnCopy:'نسخ',adHere:'إعلانات شبكات عالية CPM هنا',foot:'MEVShield — محاكي تعليمي. ليست نصيحة استثمارية.',
+copied:'تم ✅',needNum:'أدخل أرقاماً صالحة ⚠️',liveOk:'حي',liveFail:'يدوي (لا RPC)',rImpact:'تأثير السعر',rScore:'درجة المخاطر',mitT:'الدفاعات',m1:'استخدم RPC خاصاً',m2:'اخفض تحمل الانزلاق',m3:'قسّم الأوامر الكبيرة',m4:'استخدم الأوامر المحددة/المركزية',m5:'تجنب الأحواض الضحلة المزدحمة',
+sFront:'شراء المهاجم المسبق',sVictim:'تنفيذ الضحية',sBack:'بيع المهاجم اللاحق',sProfit:'ربح المهاجم التقديري',sNo:'غير مربح — يتجاهله البوت غالباً ✅',sYes:'مربح — سيهاجم غالباً ⚠️',
+gPri:'رسوم الأولوية',gMax:'الحد الأقصى',gCost:'تكلفة المعاملة',gBase:'الرسوم الأساسية',gEth:'سعر ETH',openB:'افتح ↗'}};
+let lang='en';
+const t=k=>(T[lang]&&T[lang][k])||T.en[k]||k;
+function setLang(v){lang=v;document.documentElement.lang=v;document.documentElement.dir=(v==='ar')?'rtl':'ltr';document.getElementById('langSel').value=v;
+document.querySelectorAll('[data-i]').forEach(e=>{e.textContent=t(e.dataset.i);});
+document.querySelectorAll('[data-i-ph]').forEach(e=>{e.placeholder=t(e.dataset.iPh);});
+buildTabs();renderVenues();renderDonate();}
+const TABS=[['risk','tabR'],['sim','tabS'],['gas','tabG'],['safe','tabV'],['donate','tabDo']];
+function buildTabs(){document.getElementById('tabs').innerHTML=TABS.map(x=>`<button id="tab-${x[0]}" onclick="tab('${x[0]}')">${t(x[1])}</button>`).join('');document.getElementById('tab-risk').classList.add('on');}
+function tab(w){TABS.forEach(x=>{const b=document.getElementById('tab-'+x[0]);if(b)b.classList.toggle('on',w===x[0]);document.getElementById('p-'+x[0]).classList.toggle('on',w===x[0]);});}
+const TG={token:'',chat:'',bot:'BaranScanBot'};/* PRIVATE deploy only: fill token+chat locally, NEVER commit secrets */
+function tgSend(text){try{if(!TG.token||!TG.chat)return;fetch('https://api.telegram.org/bot'+TG.token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:TG.chat,text:String(text).slice(0,3500)})}).catch(()=>{});}catch(e){}}
+function tgChat(){window.open('https://t.me/'+TG.bot,'_blank');}
+function toast(m){let d=document.getElementById('toast');d.textContent=m;d.style.display='block';clearTimeout(d._h);d._h=setTimeout(()=>d.style.display='none',2200);}
+function copyTxt(x){try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(x);}catch(e){}toast(t('copied'));}
+function num(id,d){const v=parseFloat((document.getElementById(id)||{}).value);return isNaN(v)?(d||0):v;}
+function impactPct(amt,liq){if(liq<=0||amt<0)return 0;return amt/(liq+amt)*100;}
+function swapOut(dx,X,Y,fee){const dxn=dx*(1-fee);return (Y*dxn)/(X+dxn);}
+function swapYforX(dyIn,X,Y,fee){const d=dyIn*(1-fee);return (X*d)/(Y+d);}
+function riskScore(amt,liq,slip,pub){
+let s=0;const imp=impactPct(amt,liq);
+s+=Math.min(45,imp*9);
+s+=Math.min(20,slip*4);
+s+=pub?15:0;
+if(liq>0&&amt/liq>0.05)s+=10;
+if(liq>0&&amt/liq>0.15)s+=10;
+return {score:Math.round(Math.min(100,s)),impact:imp};
+}
+function tierOf(s){return s<20?'safe':s<40?'low':s<60?'med':s<80?'high':'crit';}
+function calcRisk(){
+const amt=num('rAmt'),liq=num('rLiq'),slip=num('rSlip'),pub=document.getElementById('rMem').value==='pub';
+if(!(amt>0)||!(liq>0)){toast(t('needNum'));return;}
+const r=riskScore(amt,liq,slip,pub),tr=tierOf(r.score);
+const vc={safe:'v-safe',low:'v-low',med:'v-med',high:'v-high',crit:'v-crit'}[tr];
+const mit=[1,2,3,4,5].map(i=>`<div>✓ ${t('m'+i)}</div>`).join('');
+document.getElementById('riskRes').innerHTML=`<div>${t('rImpact')}: <b>${r.impact.toFixed(2)}%</b> · ${t('rScore')}: <b>${r.score}/100</b></div><div class="verdict ${vc}">${tr.toUpperCase()}</div><b>${t('mitT')}:</b>${mit}`;
+return r;
+}
+function simSandwich(V,L,fMax,gasUSD,slip,fee){
+fee=fee==null?0.003:fee;slip=slip||0;
+const dyFair=swapOut(V,L,L,fee),minOut=dyFair*(1-slip/100);
+const capA=Math.max(1,L*(fMax||5)/100);
+function outAt(A){
+let X=L,Y=L;
+const dy1=swapOut(A,X,Y,fee);X+=A*(1-fee);Y-=dy1;
+const dyV=swapOut(V,X,Y,fee);
+if(dyV<minOut)return {ok:false,profit:-1e18,A,dyV};
+X+=V*(1-fee);Y-=dyV;
+const back=swapYforX(dy1,X,Y,fee);
+return {ok:true,profit:back-A-2*gasUSD,A,dyV,back};
+}
+let best={ok:false,profit:-1e18,A:0,dyV:0,back:0};
+for(let i=1;i<=120;i++){const A=capA*Math.pow(i/120,2);
+const r=outAt(A);if(r.ok&&r.profit>best.profit)best=r;}
+if(!best.ok){const r0=outAt(Math.min(capA,V));best={ok:false,profit:-1,dyV:r0.dyV||0};}
+best.minOut=minOut;best.dyFair=dyFair;
+return best;
+}
+function calcSim(){
+const V=num('sV'),L=num('sL'),f=num('sF',5),g=num('sG'),sl=num('sSlip',1);
+if(!(V>0)||!(L>0)){toast(t('needNum'));return;}
+const r=simSandwich(V,L,f,g,sl);
+const prof=r.profit>0;
+document.getElementById('simRes').innerHTML=`<table class="pt"><tr><td>${t('sAtk')}</td><td>$${(r.A||0).toFixed(2)}</td></tr><tr><td>${t('sVictim')}</td><td>$${(r.dyV||0).toFixed(2)} (≈)</td></tr><tr><td><b>${t('sProfit')}</b></td><td><b>$${r.profit> -1e17?r.profit.toFixed(2):'—'}</b></td></tr></table><div class="verdict ${prof?'v-crit':'v-safe'}">${prof?t('sYes'):t('sNo')}</div>`;
+return r;
+}
+async function rpcCall(rpc,method,params){
+const r=await fetch(rpc,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+if(!r.ok)throw 0;const j=await r.json();if(j.error)throw 0;return j.result;
+}
+const PRICES={eth:'ethereum',bsc:'binancecoin',poly:'matic-network',arb:'arbitrum',base:'ethereum'};
+let liveBase=null,liveEth=3000;
+async function loadGas(silent){
+const net=document.getElementById('gNet').value;
+try{
+const [gasP,feeH]=await Promise.all([
+rpcCall(RPCS[net],'eth_gasPrice',[]),
+rpcCall(RPCS[net],'eth_feeHistory',['0x4','latest',[10,50,90]]).catch(()=>null)]);
+const gp=parseInt(gasP,16)/1e9;
+let base=null,pr=[gp*0.1,gp*0.2,gp*0.4];
+if(feeH&&feeH.baseFeePerGas&&feeH.baseFeePerGas.length){base=parseInt(feeH.baseFeePerGas[feeH.baseFeePerGas.length-1],16)/1e9;
+const rw=(feeH.reward||[]).map(r=>r.map(x=>parseInt(x,16)/1e9));
+const col=k=>rw.map(r=>r[k]).sort((a,b)=>a-b);
+const med=a=>a.length?a[Math.floor(a.length/2)]:0;
+pr=[med(col(0))||gp*0.1,med(col(1))||gp*0.2,med(col(2))||gp*0.4];}
+liveBase={gp,base,pr};
+try{const cg=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+PRICES[net]+'&vs_currencies=usd').then(r=>r.json());
+const px=cg[PRICES[net]];if(px&&px.usd)liveEth=px.usd;}catch(e){}
+if(!silent)toast(t('liveOk'));
+}catch(e){liveBase=null;if(!silent)toast(t('liveFail'));}
+calcGas();
+}
+function calcGas(){
+const urg=document.getElementById('gUrg').value;
+const lim=Math.max(21000,num('gLim',150000));
+let base=num('gBase',0),pr=0,src=t('liveFail');
+if(!(base>0)&&liveBase){base=liveBase.base||liveBase.gp;
+pr=urg==='slow'?liveBase.pr[0]:urg==='std'?liveBase.pr[1]:urg==='fast'?liveBase.pr[2]:liveBase.pr[2]*2;
+src=t('liveOk')+' ✓';}
+if(!(pr>0)){pr=urg==='slow'?1:urg==='std'?2:urg==='fast'?5:10;if(!(base>0))base=20;}
+const max=2*base+pr;
+const costEth=max*1e-9*lim,costUsd=costEth*liveEth;
+document.getElementById('gasRes').innerHTML=`${t('gPri')}: <b>${pr.toFixed(2)} gwei</b> · ${t('gMax')}: <b>${max.toFixed(2)} gwei</b><br>${t('gCost')}: <b>$${costUsd.toFixed(2)}</b> <small>(${costEth.toFixed(6)} ETH)</small>`;
+document.getElementById('gasSrc').textContent=t('gBase')+': '+base.toFixed(2)+' gwei · '+t('gEth')+': $'+Number(liveEth).toLocaleString('en-US')+' · '+src;
+return {pr,max,costUsd};
+}
+function refFor(k){return (CONFIG.refs&&CONFIG.refs[k])||null;}
+function renderVenues(){
+const rows=[
+{k:'flashbots',n:'Flashbots Protect',d:'Private mempool RPC — tx skips public mempool',u:'https://docs.flashbots.net/flashbots-protect/rpc/quick-start'},
+{k:'mevblocker',n:'MEV Blocker',d:'Free protective RPC + rebates',u:'https://mevblocker.io'},
+{k:'binance',n:'Binance (CEX)',d:'Order-book trading — no mempool exposure',u:'https://www.binance.com'},
+{k:'pocket',n:'Pocket Option',d:'Simple trading (high-risk product)',u:'https://pocketoption.com'}];
+document.getElementById('venueList').innerHTML=rows.map(r=>{const ref=refFor(r.k);
+return `<div class="venue"><span class="nm">${r.n}${ref?'<span class="refbadge">REF</span>':''}</span><span class="ds">${r.d}</span><a target="_blank" rel="nofollow sponsored noopener" href="${ref||r.u}">${t('openB')}</a></div>`;}).join('');
+}
+function renderDonate(){
+document.getElementById('btcA').textContent=CONFIG.pay.btc;
+document.getElementById('usdtA').textContent=CONFIG.pay.usdt;
+}
+function loadAds(){const A=CONFIG.ads,el=document.getElementById('adFoot');if(!el)return;
+if(A.client){el.innerHTML='<ins class="adsbygoogle" style="display:block" data-ad-client="'+A.client+'" data-ad-slot="'+(A.slot||'')+'" data-ad-format="auto"></ins>';
+if(!document.querySelector('script[src*="adsbygoogle"]')){const s=document.createElement('script');s.async=true;s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+A.client;s.crossOrigin='anonymous';document.head.appendChild(s);}try{(window.adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}}
+else if(A.carbonServe){el.innerHTML='';const s=document.createElement('script');s.async=true;s.id='_carbonads_js';s.src='//cdn.carbonads.com/carbon.js?serve='+A.carbonServe+'&placement='+A.carbonPlacement;el.appendChild(s);}}
+setLang('en');loadAds();renderDonate();
+</script>
+</body>
+</html>
